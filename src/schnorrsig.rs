@@ -35,12 +35,12 @@ impl<'de> ::serde::Deserialize<'de> for Signature {
     fn deserialize<D: ::serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         if d.is_human_readable() {
             d.deserialize_str(super::serde_util::FromStrVisitor::new(
-                "a hex string representing 64 byte schnorr signature"
+                "a hex string representing 64 byte schnorr signature",
             ))
         } else {
             d.deserialize_bytes(super::serde_util::BytesVisitor::new(
                 "raw 64 bytes schnorr signature",
-                Signature::from_slice
+                Signature::from_slice,
             ))
         }
     }
@@ -145,10 +145,7 @@ impl KeyPair {
     /// holds correct secret key value obtained from Secp256k1 library
     /// previously
     #[inline]
-    pub fn from_secret_key<C: Signing>(
-        secp: &Secp256k1<C>,
-        sk: ::key::SecretKey,
-    ) -> KeyPair {
+    pub fn from_secret_key<C: Signing>(secp: &Secp256k1<C>, sk: ::key::SecretKey) -> KeyPair {
         unsafe {
             let mut kp = ffi::KeyPair::new();
             if ffi::secp256k1_keypair_create(secp.ctx, &mut kp, sk.as_c_ptr()) == 1 {
@@ -225,11 +222,8 @@ impl KeyPair {
         }
 
         unsafe {
-            let err = ffi::secp256k1_keypair_xonly_tweak_add(
-                secp.ctx,
-                &mut self.0,
-                tweak.as_c_ptr(),
-            );
+            let err =
+                ffi::secp256k1_keypair_xonly_tweak_add(secp.ctx, &mut self.0, tweak.as_c_ptr());
 
             if err == 1 {
                 Ok(())
@@ -312,7 +306,7 @@ impl PublicKey {
 
     /// Tweak an x-only PublicKey by adding the generator multiplied with the given tweak to it.
     ///
-    /// Returns a boolean representing the parity of the tweaked key, which can be provided to 
+    /// Returns a boolean representing the parity of the tweaked key, which can be provided to
     /// `tweak_add_check` which can be used to verify a tweak more efficiently than regenerating
     /// it and checking equality. Will return an error if the resulting key would be invalid or
     /// if the tweak was not a 32-byte length slice.
@@ -438,12 +432,12 @@ impl<'de> ::serde::Deserialize<'de> for PublicKey {
     fn deserialize<D: ::serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         if d.is_human_readable() {
             d.deserialize_str(super::serde_util::FromStrVisitor::new(
-                "a hex string representing 32 byte schnorr public key"
+                "a hex string representing 32 byte schnorr public key",
             ))
         } else {
             d.deserialize_bytes(super::serde_util::BytesVisitor::new(
                 "raw 32 bytes schnorr public key",
-                PublicKey::from_slice
+                PublicKey::from_slice,
             ))
         }
     }
@@ -484,11 +478,7 @@ impl<C: Signing> Secp256k1<C> {
     }
 
     /// Create a schnorr signature without using any auxiliary random data.
-    pub fn schnorrsig_sign_no_aux_rand(
-        &self,
-        msg: &Message,
-        keypair: &KeyPair,
-    ) -> Signature {
+    pub fn schnorrsig_sign_no_aux_rand(&self, msg: &Message, keypair: &KeyPair) -> Signature {
         self.schnorrsig_sign_helper(msg, keypair, ptr::null())
     }
 
@@ -619,9 +609,7 @@ mod tests {
 
     #[test]
     fn test_schnorrsig_sign_verify() {
-        test_schnorrsig_sign_helper(|secp, msg, seckey, _| {
-            secp.schnorrsig_sign(msg, seckey)
-        })
+        test_schnorrsig_sign_helper(|secp, msg, seckey, _| secp.schnorrsig_sign(msg, seckey))
     }
 
     #[test]
@@ -632,7 +620,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(fuzzing))]  // fixed sig vectors can't work with fuzz-sigs
+    #[cfg(not(fuzzing))] // fixed sig vectors can't work with fuzz-sigs
     fn test_schnorrsig_sign() {
         let secp = Secp256k1::new();
 
@@ -647,14 +635,13 @@ mod tests {
             hex_32!("02CCE08E913F22A36C5648D6405A2C7C50106E7AA2F1649E381C7F09D16B80AB");
         let expected_sig = Signature::from_str("6470FD1303DDA4FDA717B9837153C24A6EAB377183FC438F939E0ED2B620E9EE5077C4A8B8DCA28963D772A94F5F0DDF598E1C47C137F91933274C7C3EDADCE8").unwrap();
 
-        let sig = secp
-            .schnorrsig_sign_with_aux_rand(&msg, &sk, &aux_rand);
+        let sig = secp.schnorrsig_sign_with_aux_rand(&msg, &sk, &aux_rand);
 
         assert_eq!(expected_sig, sig);
     }
 
     #[test]
-    #[cfg(not(fuzzing))]  // fixed sig vectors can't work with fuzz-sigs
+    #[cfg(not(fuzzing))] // fixed sig vectors can't work with fuzz-sigs
     fn test_schnorrsig_verify() {
         let secp = Secp256k1::new();
 
@@ -733,7 +720,12 @@ mod tests {
         #[cfg(not(fuzzing))]
         let pk = PublicKey::from_keypair(&s, &sk);
         #[cfg(fuzzing)]
-        let pk = PublicKey::from_slice(&[0x18, 0x84, 0x57, 0x81, 0xf6, 0x31, 0xc4, 0x8f, 0x1c, 0x97, 0x09, 0xe2, 0x30, 0x92, 0x06, 0x7d, 0x06, 0x83, 0x7f, 0x30, 0xaa, 0x0c, 0xd0, 0x54, 0x4a, 0xc8, 0x87, 0xfe, 0x91, 0xdd, 0xd1, 0x66]).expect("pk");
+        let pk = PublicKey::from_slice(&[
+            0x18, 0x84, 0x57, 0x81, 0xf6, 0x31, 0xc4, 0x8f, 0x1c, 0x97, 0x09, 0xe2, 0x30, 0x92,
+            0x06, 0x7d, 0x06, 0x83, 0x7f, 0x30, 0xaa, 0x0c, 0xd0, 0x54, 0x4a, 0xc8, 0x87, 0xfe,
+            0x91, 0xdd, 0xd1, 0x66,
+        ])
+        .expect("pk");
 
         assert_eq!(
             pk.to_string(),
@@ -805,7 +797,7 @@ mod tests {
     }
 
     #[cfg(feature = "serde")]
-    #[cfg(not(fuzzing))]  // fixed sig vectors can't work with fuzz-sigs
+    #[cfg(not(fuzzing))] // fixed sig vectors can't work with fuzz-sigs
     #[test]
     fn test_serde() {
         use serde_test::{assert_tokens, Configure, Token};
@@ -815,8 +807,7 @@ mod tests {
         let msg = Message::from_slice(&[1; 32]).unwrap();
         let keypair = KeyPair::from_seckey_slice(&s, &[2; 32]).unwrap();
         let aux = [3; 32];
-        let sig = s
-            .schnorrsig_sign_with_aux_rand(&msg, &keypair, &aux);
+        let sig = s.schnorrsig_sign_with_aux_rand(&msg, &keypair, &aux);
         static SIG_BYTES: [u8; constants::SCHNORRSIG_SIGNATURE_SIZE] = [
             0x14, 0xd0, 0xbf, 0x1a, 0x89, 0x53, 0x50, 0x6f, 0xb4, 0x60, 0xf5, 0x8b, 0xe1, 0x41,
             0xaf, 0x76, 0x7f, 0xd1, 0x12, 0x53, 0x5f, 0xb3, 0x92, 0x2e, 0xf2, 0x17, 0x30, 0x8e,
@@ -829,8 +820,8 @@ mod tests {
         ";
 
         static PK_BYTES: [u8; 32] = [
-            24, 132, 87, 129, 246, 49, 196, 143, 28, 151, 9, 226, 48, 146, 6, 125, 6, 131, 127,
-            48, 170, 12, 208, 84, 74, 200, 135, 254, 145, 221, 209, 102
+            24, 132, 87, 129, 246, 49, 196, 143, 28, 151, 9, 226, 48, 146, 6, 125, 6, 131, 127, 48,
+            170, 12, 208, 84, 74, 200, 135, 254, 145, 221, 209, 102,
         ];
         static PK_STR: &'static str = "\
             18845781f631c48f1c9709e23092067d06837f30aa0cd0544ac887fe91ddd166\
